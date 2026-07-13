@@ -2,6 +2,9 @@
 // EquipActorParam
 //=============================================================================
 // Version
+// 1.1. 2026/07/13
+// 		・メモタグを１つしか読み込めなかった問題を解消
+// 		・装備とアクターが同一の場合の循環参照を防止
 // 1.0. 2026/07/09 初版
 // This software is released under the MIT License.
 // http://opensource.org/licenses/mit-license.php
@@ -73,6 +76,7 @@
  */
 
 const _Game_Actor_paramPlus = Game_Actor.prototype.paramPlus;
+
 const PARAM_MAP = {
   mhp: 0,
   mmp: 1,
@@ -88,12 +92,18 @@ Game_Actor.prototype.paramPlus = function (paramId) {
   let value = _Game_Actor_paramPlus.call(this, paramId);
 
   for (const item of this.equips()) {
-    if (!item || !item.meta.CopyParam) continue;
+    if (!item) continue;
 
-    const [actorId, paramName] = item.meta.CopyParam.split(",");
+    const regexp = /<CopyParam:([^>]+)>/g;
+    let match;
 
-    if (PARAM_MAP[paramName] === paramId) {
+    while ((match = regexp.exec(item.note)) !== null) {
+      const [actorId, paramName] = match[1].split(",");
+
+      if (PARAM_MAP[paramName] !== paramId) continue;
+
       const actor = $gameActors.actor(Number(actorId));
+      if (!actor) continue;
 
       value += actor.paramBase(paramId);
       value += _Game_Actor_paramPlus.call(actor, paramId);
